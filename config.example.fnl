@@ -220,6 +220,9 @@
         [{:key :m
           :title "Maximize"
           :action "windows:maximize-window-frame"}
+         {:key :f
+          :title "Fullscreen"
+          :action "windows:fullscreen-window-frame"}
          {:key :c
           :title "Center"
           :action "windows:center-window-frame"}

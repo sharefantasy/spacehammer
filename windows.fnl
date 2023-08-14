@@ -103,6 +103,12 @@
           (: :centerOnScreen))
         (highlight-active-window)))
 
+(fn fullscreen-window-frame
+  []
+  (: history :push)
+  (: (hs.window.focusedWindow) :setFullScreen true)
+  (highlight-active-window))
+
 (fn center-window-frame
   []
   (: history :push)
@@ -539,6 +545,7 @@
  : jump-window-left
  : jump-window-right
  : maximize-window-frame
+ : fullscreen-window-frame   
  : move-east
  : move-north
  : move-south
