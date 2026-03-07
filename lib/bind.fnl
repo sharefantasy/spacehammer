@@ -3,8 +3,9 @@
         : map
         : split}
        (require :lib.functional))
+(local {: logger} (require :lib.utils))
 
-(local log (hs.logger.new "bind.fnl" "debug"))
+(local log (logger "bind.fnl" "warning"))
 
 (fn do-action
   [action args]
@@ -69,7 +70,7 @@
   Returns a function to remove bindings.
   "
   (let [modal (hs.hotkey.modal.new [] nil)]
-    (each [_ item (ipairs items)]
+    (each [_ item (ipairs (or items []))]
       (let [{:key key
              :mods mods
              :action action

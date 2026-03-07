@@ -3,12 +3,12 @@
 (local fennel (require :fennel))
 (require :lib.globals)
 (local {:contains? contains?
-        :for-each  for-each
         :map       map
         :merge     merge
         :reduce    reduce
         :split     split
         :some      some} (require :lib.functional))
+(local {: logger} (require :lib.utils))
 (local atom (require :lib.atom))
 (require-macros :lib.macros)
 (require-macros :lib.advice.macros)
@@ -22,9 +22,9 @@
 ;; Make ~/.spacehammer folder override repo files
 (local homedir (os.getenv "HOME"))
 (local customdir (.. homedir "/.spacehammer"))
-(tset fennel :path (.. customdir "/?.fnl;" fennel.path))
+(set fennel.path (.. customdir "/?.fnl;" fennel.path))
 
-(local log (hs.logger.new "\tcore.fnl\t" "debug"))
+(local log (logger "\tcore.fnl\t" "debug"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; defaults
@@ -92,10 +92,10 @@ Returns nil. This function causes side-effects.
   "
   (let [default-config (io.open source "r")
         custom-config (io.open dest "a")]
-    (each [line _ (: default-config :lines)]
-      (: custom-config :write (.. line "\n")))
-    (: custom-config :close)
-    (: default-config :close)))
+    (each [line _ (default-config:lines)]
+      (custom-config:write (.. line "\n")))
+    (custom-config:close)
+    (default-config:close)))
 
 ;; If ~/.spacehammer/config.fnl does not exist
 ;; - Create ~/.spacehammer dir
@@ -167,9 +167,9 @@ Returns nil. This function causes side-effects.
   Returns a function to stop the watcher.
   "
   (let [watcher (hs.pathwatcher.new dir config-reloader)]
-    (: watcher :start)
+    (watcher:start)
     (fn []
-      (: watcher :stop))))
+      (watcher:stop))))
 
 ;; Create a global config-files-watcher. Calling it stops the default watcher
 (global config-files-watcher (watch-files hs.configdir))
@@ -236,3 +236,6 @@ Returns nil. This function causes side-effects.
                       {path (module.init config)})))
              (reduce #(merge $1 $2) {})))
 
+;; override log level for named loggers in config
+(each [logger-id level (pairs (or config.log-levels {}))]
+  (logger logger-id level))

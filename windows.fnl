@@ -2,7 +2,6 @@
         : get-in
         : count
         : concat
-        : contains?
         : map
         : for-each
         : split} (require :lib.functional))
@@ -209,10 +208,10 @@
 
 (local
  arrow-map
- {:k {:half [0  0  1 .5] :movement [  0 -20] :complement :h :resize "Shorter"}
-  :j {:half [0 .5  1 .5] :movement [  0  20] :complement :l :resize "Taller"}
-  :h {:half [0  0 .5  1] :movement [-20   0] :complement :j :resize "Thinner"}
-  :l {:half [.5 0 .5  1] :movement [ 20   0] :complement :k :resize "Wider"}})
+ {:k {:half [0  0  1 .5] :movement [  0 -20] :resize "Shorter"}
+  :j {:half [0 .5  1 .5] :movement [  0  20] :resize "Taller"}
+  :h {:half [0  0 .5  1] :movement [-20   0] :resize "Thinner"}
+  :l {:half [.5 0 .5  1] :movement [ 20   0] :resize "Wider"}})
 
 (fn grid
   [method direction]
@@ -335,11 +334,11 @@
 
 (fn resize-up
   []
-  (resize-window :j))
+  (resize-window :k))
 
 (fn resize-down
   []
-  (resize-window :k))
+  (resize-window :j))
 
 (fn resize-right
   []
@@ -455,30 +454,19 @@
              (when screen
                (move-to-screen screen)))})
 
-(fn remove-monitor-items
-  [menu]
-  "
-  Removes the monitor items from a menu
-  Takes a menu table-map
-  Mutates the menu object to remove items with :group :monitor flags
-  Returns mutated table-map
-  "
-  (->> menu.items
-       (filter #(not (= (. $ :group) :monitor)))
-       (tset menu :items))
-  menu)
-
-(fn add-monitor-items
+(fn set-monitor-items
   [menu screens]
   "
   Update a menu by adding an item for each connected monitor
   Takes a menu table-map and a table-list of hs.screens
   Mutates the menu.items by adding items for each monitor
+  If any menu items were added previously for each monitor,
+  they are cleaned up.
   Returns mutated modal menu table-map
   "
   (->> screens
        (map monitor-item)
-       (concat menu.items)
+       (concat (filter #(not (= (. $ :group) :monitor)) menu.items))
        (tset menu :items))
   menu)
 
@@ -489,15 +477,13 @@
   Takes modal menu table-map
   - Hides any previous display numbers
   - Shows display numbers at top right of each screen
-  - Removes previous monitor items if any were added
-  - Adds monitor items based on currently connected monitors
+  - Sets monitor items based on currently connected monitors
   Returns mutated modal menu table-map for threading or chaining
   "
   (let [screens (hs.screen.allScreens)]
     (hide-display-numbers)
     (show-display-numbers screens)
-    (remove-monitor-items menu)
-    (add-monitor-items menu screens))
+    (set-monitor-items menu screens))
   menu)
 
 (fn exit-window-menu
@@ -524,7 +510,11 @@
   - Set the grid dimensions from config.fnl like {:grid {:size \"3x2\"}}
   "
   (hs.grid.setMargins (or (get-in [:grid :margins] config) [0 0]))
-  (hs.grid.setGrid (or (get-in [:grid :size] config) "3x2")))
+  (hs.grid.setGrid (or (get-in [:grid :size] config) "3x2"))
+  (let [grid-ui (get-in [:grid :ui] config)]
+    (when grid-ui
+      (each [key value (pairs grid-ui)]
+        (tset hs.grid.ui key value)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

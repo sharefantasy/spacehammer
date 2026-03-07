@@ -24,6 +24,7 @@ switching menus in one place which is then powered by config.fnl.
         : map
         : merge}
        (require :lib.functional))
+(local {: logger} (require :lib.utils))
 (local {:align-columns align-columns}
        (require :lib.text))
 (local {:action->fn action->fn
@@ -31,13 +32,18 @@ switching menus in one place which is then powered by config.fnl.
        (require :lib.bind))
 (local lifecycle (require :lib.lifecycle))
 
-(local log (hs.logger.new "modal.fnl" "debug"))
+(local log (logger "modal.fnl" "warning"))
 (var fsm nil)
 (local default-style {:textFont "Menlo"
                       :textSize 16
                       :radius 0
-                      :strokeWidth 0})
+                      :strokeWidth 0
+                      :fadeInDuration 0
+                      :fadeOutDuration 0})
 (var style {})
+
+;; Store current alert UUID for fast closeSpecific instead of closeAll
+(var current-alert-uuid nil)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -55,7 +61,7 @@ switching menus in one place which is then powered by config.fnl.
     (fn destroy-task
       []
       (when task
-        (: task :stop)
+        (task:stop)
         nil))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -242,20 +248,23 @@ switching menus in one place which is then powered by config.fnl.
   [menu]
   "
   Display a menu modal in an hs.alert.
+  Uses closeSpecific instead of closeAll for much faster rendering.
   Takes a menu table specified in config.fnl
   Opens an alert modal as a side effect
   Returns nil
   "
+  ;; Close previous alert specifically (much faster than closeAll)
+  (when current-alert-uuid
+    (hs.alert.closeSpecific current-alert-uuid 0))
+  
+  ;; Build and show new alert, store UUID
   (let [items (->> menu.items
                    (filter (fn [item] item.title))
                    (map (fn [item]
                           [(format-key item) (. item :title)]))
                    (align-columns))
         text (join "\n" items)]
-    (hs.alert.closeAll)
-    (alert text
-           style
-           99999)))
+    (set current-alert-uuid (hs.alert.show text style 99999))))
 
 (fn show-modal-menu
   [state]
@@ -270,11 +279,13 @@ switching menus in one place which is then powered by config.fnl.
   (let [unbind-keys (bind-menu-keys state.context.menu.items)
         stop-timeout state.context.stop-timeout]
     (fn []
-      (hs.alert.closeAll 0)
+      ;; Use closeSpecific for faster cleanup
+      (when current-alert-uuid
+        (hs.alert.closeSpecific current-alert-uuid 0)
+        (set current-alert-uuid nil))
       (unbind-keys)
       (call-when stop-timeout)
-      (lifecycle.exit-menu state.context.menu)
-      )))
+      (lifecycle.exit-menu state.context.menu))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Menus, & Config Navigation
@@ -333,7 +344,7 @@ switching menus in one place which is then powered by config.fnl.
 
 
 (fn ->enter-app
-  [state action extra]
+  [state _action _extra]
   "
   Transition our modal state machine the main menu to an app menu
   Takes the current modal state table and the app menu table.
@@ -364,7 +375,7 @@ switching menus in one place which is then powered by config.fnl.
   Returns new updated modal state if we are leaving the current app.
   "
   (let [{:config config
-        :menu prev-menu} state.context]
+         :menu prev-menu} state.context]
     (if (= prev-menu.key config.key)
         nil
         (->menu state))))
@@ -388,7 +399,7 @@ switching menus in one place which is then powered by config.fnl.
    :effect :open-menu})
 
 (fn ->previous
-  [state action extra]
+  [state _action _extra]
   "
   Transition to the previous submenu. Like if you went into the window menu
   and wanted to go back to the main menu.
